@@ -7,7 +7,7 @@ import random
 PORT = 'COM6'  # Replace with your NUCLEO's port
 BAUD = 115200  # Replace with your NUCLEO's baud rate
 
-THRESHOLD = 50 # Adjust this threshold based on your microphone sensitivity
+THRESHOLD = 35 # Adjust this threshold based on your microphone sensitivity
 COOLDOWN = 0.1  # Cooldown time in seconds to prevent multiple triggers from a single clap
 
 

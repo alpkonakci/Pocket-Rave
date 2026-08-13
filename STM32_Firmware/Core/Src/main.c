@@ -579,62 +579,42 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 void StartDefaultTask(void const * argument)
 {
   /* USER CODE BEGIN 5 */
-  /*/* Infinite loop */
-	/*for(;;)
-	  {
-		  if(yeni_veri == 1)
-		  {
-			  // Güvenlik şifresi doğru mu? (0xFF ve 0xFE)
-			  if(rx_data[0] == 0xFF && rx_data[5] == 0xFE)
-			  {
-				  // Gelen 0-255 (Byte) verisini, donanımın 0-999 (PWM) aralığına matematiksel oranlıyoruz
-				  __HAL_TIM_SET_COMPARE(&htim12, TIM_CHANNEL_1, (rx_data[1] * 999) / 255); // Kırmızı
-				  __HAL_TIM_SET_COMPARE(&htim3,  TIM_CHANNEL_3, (rx_data[2] * 999) / 255); // Yeşil
-				  __HAL_TIM_SET_COMPARE(&htim4,  TIM_CHANNEL_2, (rx_data[3] * 999) / 255); // Mavi
-
-				  // Python'dan (Bayt 4) gelen süre (ms) kadar ışıkları yanık tut
-				  osDelay(rx_data[4]);
-
-				  // Süre dolunca ışıkları kapat (Strobe efekti tamamlandı)
-				  __HAL_TIM_SET_COMPARE(&htim12, TIM_CHANNEL_1, 0);
-				  __HAL_TIM_SET_COMPARE(&htim3,  TIM_CHANNEL_3, 0);
-				  __HAL_TIM_SET_COMPARE(&htim4,  TIM_CHANNEL_2, 0);
-			  }
-			  yeni_veri = 0; // Bir sonraki DMA paketi gelene kadar bekle
-		  }
-	    osDelay(1); // FreeRTOS sistem kilidini önlemek için 1ms bekleme
-	  }*/
 	/* Infinite loop */
 	  for(;;)
 	  {
-		  if(new_data == 1)
-		  {
-			  // Check security payload (0xFF and 0xFE)
-			  if(rx_data[0] == 0xFF && rx_data[5] == 0xFE)
-			  {
-				  // Map 0-255 byte data from Python to 0-999 PWM range
-				  __HAL_TIM_SET_COMPARE(&htim12, TIM_CHANNEL_1, (rx_data[1] * 999) / 255); // Red
-				  __HAL_TIM_SET_COMPARE(&htim3,  TIM_CHANNEL_3, (rx_data[2] * 999) / 255); // Green
-				  __HAL_TIM_SET_COMPARE(&htim4,  TIM_CHANNEL_2, (rx_data[3] * 999) / 255); // Blue
+	      if(new_data == 1)
+	      {
+	          // Check security payload (0xFF and 0xFE)
+	          if(rx_data[0] == 0xFF && rx_data[5] == 0xFE)
+	          {
+	              // Map 0-255 byte data from Python to 0-999 PWM range
+	              __HAL_TIM_SET_COMPARE(&htim12, TIM_CHANNEL_1, (rx_data[1] * 999) / 255); // Red
+	              __HAL_TIM_SET_COMPARE(&htim3,  TIM_CHANNEL_3, (rx_data[2] * 999) / 255); // Green
+	              __HAL_TIM_SET_COMPARE(&htim4,  TIM_CHANNEL_2, (rx_data[3] * 999) / 255); // Blue
 
-				  // NOTE: osDelay and reset (0) commands are removed for Continuous Mode.
-				  // Lights will hold their current brightness until a new payload arrives.
-			  }
-			  new_data = 0; // Reset flag and wait for the next DMA packet
-		  }
-	    osDelay(1); // 1ms delay to prevent FreeRTOS system lock
+	              // UNIVERSAL LOGIC: Check duration byte (rx_data[4])
+	              if(rx_data[4] > 0)
+	              {
+	                  // STROBE MODE: If duration is greater than 0, wait and then turn off
+	                  osDelay(rx_data[4]);
+
+	                  __HAL_TIM_SET_COMPARE(&htim12, TIM_CHANNEL_1, 0);
+	                  __HAL_TIM_SET_COMPARE(&htim3,  TIM_CHANNEL_3, 0);
+	                  __HAL_TIM_SET_COMPARE(&htim4,  TIM_CHANNEL_2, 0);
+	              }
+	              else
+	              {
+	                  // CONTINUOUS MODE: If duration is 0, do nothing.
+	                  // Keep the lights on until a new payload arrives.
+	              }
+	          }
+	          new_data = 0; // Reset flag and wait for the next DMA packet
+	      }
+	      osDelay(1); // 1ms delay to prevent FreeRTOS system lock
 	  }
   /* USER CODE END 5 */
 }
 
-/**
-  * @brief  Period elapsed callback in non blocking mode
-  * @note   This function is called  when TIM1 interrupt took place, inside
-  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
-  * a global variable "uwTick" used as application time base.
-  * @param  htim : TIM handle
-  * @retval None
-  */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   /* USER CODE BEGIN Callback 0 */

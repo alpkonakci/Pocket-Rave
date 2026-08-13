@@ -9,6 +9,6 @@
 ../Core/Src/main.c:500:13:MX_DMA_Init	1
 ../Core/Src/main.c:518:13:MX_GPIO_Init	1
 ../Core/Src/main.c:561:6:HAL_UART_RxCpltCallback	2
-../Core/Src/main.c:579:6:StartDefaultTask	4
-../Core/Src/main.c:638:6:HAL_TIM_PeriodElapsedCallback	2
-../Core/Src/main.c:656:6:Error_Handler	1
+../Core/Src/main.c:579:6:StartDefaultTask	5
+../Core/Src/main.c:618:6:HAL_TIM_PeriodElapsedCallback	2
+../Core/Src/main.c:636:6:Error_Handler	1
