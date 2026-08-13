@@ -61,8 +61,7 @@ PCD_HandleTypeDef hpcd_USB_OTG_FS;
 osThreadId defaultTaskHandle;
 /* USER CODE BEGIN PV */
 uint8_t rx_data[6];
-volatile uint8_t yeni_veri = 0;
-
+volatile uint8_t new_data = 0; // Changed from 'yeni_veri' to 'new_data'
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -563,7 +562,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	if(huart->Instance == USART3)
 	{
-		yeni_veri = 1;
+		new_data = 1; // Flag the task that new payload has arrived
 
 		HAL_UART_Receive_DMA(&huart3, rx_data, 6);
 	}
@@ -580,8 +579,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 void StartDefaultTask(void const * argument)
 {
   /* USER CODE BEGIN 5 */
-  /* Infinite loop */
-	for(;;)
+  /*/* Infinite loop */
+	/*for(;;)
 	  {
 		  if(yeni_veri == 1)
 		  {
@@ -604,6 +603,26 @@ void StartDefaultTask(void const * argument)
 			  yeni_veri = 0; // Bir sonraki DMA paketi gelene kadar bekle
 		  }
 	    osDelay(1); // FreeRTOS sistem kilidini önlemek için 1ms bekleme
+	  }*/
+	/* Infinite loop */
+	  for(;;)
+	  {
+		  if(new_data == 1)
+		  {
+			  // Check security payload (0xFF and 0xFE)
+			  if(rx_data[0] == 0xFF && rx_data[5] == 0xFE)
+			  {
+				  // Map 0-255 byte data from Python to 0-999 PWM range
+				  __HAL_TIM_SET_COMPARE(&htim12, TIM_CHANNEL_1, (rx_data[1] * 999) / 255); // Red
+				  __HAL_TIM_SET_COMPARE(&htim3,  TIM_CHANNEL_3, (rx_data[2] * 999) / 255); // Green
+				  __HAL_TIM_SET_COMPARE(&htim4,  TIM_CHANNEL_2, (rx_data[3] * 999) / 255); // Blue
+
+				  // NOTE: osDelay and reset (0) commands are removed for Continuous Mode.
+				  // Lights will hold their current brightness until a new payload arrives.
+			  }
+			  new_data = 0; // Reset flag and wait for the next DMA packet
+		  }
+	    osDelay(1); // 1ms delay to prevent FreeRTOS system lock
 	  }
   /* USER CODE END 5 */
 }
