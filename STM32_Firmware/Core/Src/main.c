@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "string.h"
+#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -57,8 +58,11 @@ DMA_HandleTypeDef hdma_usart3_rx;
 
 PCD_HandleTypeDef hpcd_USB_OTG_FS;
 
+osThreadId defaultTaskHandle;
 /* USER CODE BEGIN PV */
-uint8_t rx_data[1];
+uint8_t rx_data[6];
+volatile uint8_t yeni_veri = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -71,6 +75,8 @@ static void MX_TIM4_Init(void);
 static void MX_TIM12_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_USB_OTG_FS_PCD_Init(void);
+void StartDefaultTask(void const * argument);
+
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -121,8 +127,38 @@ HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
 HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
 HAL_TIM_PWM_Start(&htim12, TIM_CHANNEL_1);
 
-HAL_UART_Receive_DMA(&huart3, rx_data, 1);
+HAL_UART_Receive_DMA(&huart3, rx_data, 6);
   /* USER CODE END 2 */
+
+  /* USER CODE BEGIN RTOS_MUTEX */
+  /* add mutexes, ... */
+  /* USER CODE END RTOS_MUTEX */
+
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
+
+  /* USER CODE BEGIN RTOS_TIMERS */
+  /* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
+
+  /* USER CODE BEGIN RTOS_QUEUES */
+  /* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
+
+  /* Create the thread(s) */
+  /* definition and creation of defaultTask */
+  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
+  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+
+  /* USER CODE BEGIN RTOS_THREADS */
+  /* add threads, ... */
+  /* USER CODE END RTOS_THREADS */
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -132,52 +168,6 @@ HAL_UART_Receive_DMA(&huart3, rx_data, 1);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  // Gelen veriye göre anlık patlama (Strobe) efektleri
-	 	  if(rx_data[0] == '1')
-	 	  {
-	 		  __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_3, 999); //Yeşil Patla
-	 		  HAL_Delay(30);
-	 		  __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_3, 0); // Sön
-
-	 		  rx_data[0]=0;
-	 	  }
-	 	  else if (rx_data[0] == '2' )
-	 	  {
-
-	 		  __HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_2, 999);
-	 		  HAL_Delay(30);
-	 		  __HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_2, 0);
-	 		 rx_data[0]=0;
-	 	  }
-	 	  else if (rx_data[0] == '3')
-	 	  	  {
-	 	  		  __HAL_TIM_SET_COMPARE(&htim12, TIM_CHANNEL_1, 999); // Kırmızı Patla
-	 	  		  HAL_Delay(30);
-	 	  		  __HAL_TIM_SET_COMPARE(&htim12, TIM_CHANNEL_1, 0);
-	 	  		  rx_data[0] = 0;
-	 	  	  }
-	 	  else if (rx_data[0] == '4')
-	 	  	  {
-	 	  		  // BASS DROP: Hepsini Patlat
-	 	  		  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 999);
-	 	  		  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, 999);
-	 	  		  __HAL_TIM_SET_COMPARE(&htim12, TIM_CHANNEL_1, 999);
-
-	 	  		  HAL_Delay(40);
-
-	 	  		  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 0);
-	 	  		  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, 0);
-	 	  		  __HAL_TIM_SET_COMPARE(&htim12, TIM_CHANNEL_1, 0);
-
-	 	  		  rx_data[0] = 0;
-	 	  	  }
-	 	  	  else
-	 	  	  {
-	 	  		  // Yeni komut gelene kadar tamamen karanlıkta bekle
-	 	  		  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 0);
-	 	  		  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, 0);
-	 	  		  __HAL_TIM_SET_COMPARE(&htim12, TIM_CHANNEL_1, 0);
-	 	  	  }
 
 }
   /* USER CODE END 3 */
@@ -289,6 +279,7 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 0 */
 
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
   TIM_OC_InitTypeDef sConfigOC = {0};
 
@@ -301,6 +292,15 @@ static void MX_TIM3_Init(void)
   htim3.Init.Period = 999;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
   if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
   {
     Error_Handler();
@@ -338,6 +338,7 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 0 */
 
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
   TIM_OC_InitTypeDef sConfigOC = {0};
 
@@ -350,6 +351,15 @@ static void MX_TIM4_Init(void)
   htim4.Init.Period = 999;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
   if (HAL_TIM_PWM_Init(&htim4) != HAL_OK)
   {
     Error_Handler();
@@ -496,7 +506,7 @@ static void MX_DMA_Init(void)
 
   /* DMA interrupt init */
   /* DMA1_Stream1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
 
 }
@@ -549,8 +559,76 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	if(huart->Instance == USART3)
+	{
+		yeni_veri = 1;
 
+		HAL_UART_Receive_DMA(&huart3, rx_data, 6);
+	}
+}
 /* USER CODE END 4 */
+
+/* USER CODE BEGIN Header_StartDefaultTask */
+/**
+  * @brief  Function implementing the defaultTask thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_StartDefaultTask */
+void StartDefaultTask(void const * argument)
+{
+  /* USER CODE BEGIN 5 */
+  /* Infinite loop */
+	for(;;)
+	  {
+		  if(yeni_veri == 1)
+		  {
+			  // Güvenlik şifresi doğru mu? (0xFF ve 0xFE)
+			  if(rx_data[0] == 0xFF && rx_data[5] == 0xFE)
+			  {
+				  // Gelen 0-255 (Byte) verisini, donanımın 0-999 (PWM) aralığına matematiksel oranlıyoruz
+				  __HAL_TIM_SET_COMPARE(&htim12, TIM_CHANNEL_1, (rx_data[1] * 999) / 255); // Kırmızı
+				  __HAL_TIM_SET_COMPARE(&htim3,  TIM_CHANNEL_3, (rx_data[2] * 999) / 255); // Yeşil
+				  __HAL_TIM_SET_COMPARE(&htim4,  TIM_CHANNEL_2, (rx_data[3] * 999) / 255); // Mavi
+
+				  // Python'dan (Bayt 4) gelen süre (ms) kadar ışıkları yanık tut
+				  osDelay(rx_data[4]);
+
+				  // Süre dolunca ışıkları kapat (Strobe efekti tamamlandı)
+				  __HAL_TIM_SET_COMPARE(&htim12, TIM_CHANNEL_1, 0);
+				  __HAL_TIM_SET_COMPARE(&htim3,  TIM_CHANNEL_3, 0);
+				  __HAL_TIM_SET_COMPARE(&htim4,  TIM_CHANNEL_2, 0);
+			  }
+			  yeni_veri = 0; // Bir sonraki DMA paketi gelene kadar bekle
+		  }
+	    osDelay(1); // FreeRTOS sistem kilidini önlemek için 1ms bekleme
+	  }
+  /* USER CODE END 5 */
+}
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM1 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM1)
+  {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
+}
 
 /**
   * @brief  This function is executed in case of error occurrence.
